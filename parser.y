@@ -1,25 +1,33 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "ilocEmitter.c"
+#include "ilocEmitter.h"
+#include "symbolTable.h"
 #define YYERROR_VERBOSE
 
- int yylineno;
- int syntax_error = 0;
+int yylineno;
+int type; // 0 for int, 1 for char
+int syntax_error = 0;
 
- extern int yylex(void); 
- int yywrap(void) {return 1;}
- char *yytext;
- char *lexeme;
- void yyerror( char *s );
+extern int yylex(void); 
+
+int yywrap(void) {return 1;}
+char *yytext;
+char *lexeme;
+void yyerror( char *s );
 
 %}
+%union {
+   char *string;
+   struct Variable *variable;
+}
+
 %token PROCEDURE
 %token INT CHAR
 %token LC RC
 %token LB RB
 %token LP RP
-%token NAME
+%token<string> NAME
 %token SEMI COMMA COLON ASSIGNOP
 %token WHILE THEN
 %token FOR
@@ -30,9 +38,11 @@
 %token NOT OR AND
 %token LT LE EQ NE GE GT
 %token ADD MINUS MULTI DIVID
-%token CHARCONST NUMBER
+%token <string> CHARCONST NUMBER
 %token ENDOFFILE
-%start  Procedure
+%start Procedure
+
+%type<variable> Factor Term Expr Stmt Stmts Reference
 
 %%
 Procedure : PROCEDURE NAME 
@@ -53,8 +63,8 @@ Decls : Decls Decl SEMI
 Decl : Type SpecList
 ;
 
-Type : INT
-     | CHAR
+Type : INT {type = 0;}
+     | CHAR {type = 1;}
 ;
 
 SpecList : SpecList COMMA Spec
@@ -62,6 +72,10 @@ SpecList : SpecList COMMA Spec
 ;
 
 Spec : NAME
+      {
+         int registerNumber = NextRegister();  
+         insert($1, getVariable($1, type, registerNumber));
+      }
      | NAME LB Bounds RB
 ;
 
@@ -76,7 +90,15 @@ Stmts : Stmts Stmt
       | Stmt
 ;
 
-Stmt : Reference ASSIGNOP Expr SEMI
+Stmt : Reference ASSIGNOP Expr SEMI 
+      {
+         Variable* node1 = (Variable*)$1;
+         Variable* node3 = (Variable*)$3;
+
+         int addr1 = node1->registerNumber;
+         int value = node3->value;
+         Emit(-1, loadI, value, addr1, -1);
+      }
      | Reference ADD ASSIGNOP Expr SEMI
          {yyerror("Do not use plus equal in demo"); yyerrok;}
      | Reference ASSIGNOP Expr SEMI SEMI
@@ -120,54 +142,66 @@ WithElse : IF LP Bool RP THEN WithElse
          | error
 
 Bool : NOT OrTerm
-{ $$ = !$2; }
      | OrTerm
 ;
 
 OrTerm : OrTerm OR AndTerm
-{ $$ = $1 || $3; }
        | AndTerm
 ;
 
 AndTerm : AndTerm AND RelExpr
-{ $$ = $1 && $3; }
         | RelExpr
 ;
 
 RelExpr : RelExpr LT Expr 
-{ $$ = $1 < $3; }
         | RelExpr LE Expr 
-{ $$ = $1 <= $3; }
-        | RelExpr EQ Expr
-{ $$ = $1 == $3; }        
+        | RelExpr EQ Expr     
         | RelExpr NE Expr 
-{ $$ = $1 != $3; }
         | RelExpr GE Expr 
-{ $$ = $1 >= $3; }
         | RelExpr GT Expr 
-{ $$ = $1 > $3; }
         | Expr
 ;
 
 Expr : Expr ADD Term
+      {
+         
+      }
      | Expr MINUS Term
      | Term
+       {$$ = $1;}
 ;
 
 Term : Term MULTI Factor
      | Term DIVID Factor   
      | Factor
+       {$$ = $1;}
 ;
 
 Factor : LP Expr RP
-{ $$ = $2; }
        | Reference
        | NUMBER 
-{ $$ = atoi(lexeme); }
+         {
+            Variable *v = malloc(sizeof(Variable));
+            v->value = atoi($1);
+            $$ = (struct Variable*)v;
+         }
        | CHARCONST
+         {
+            Variable *v = malloc(sizeof(Variable));
+            v->value = (int)$1;
+            $$ = (struct Variable*)v;
+         }
 ;
 
 Reference : NAME
+            {
+               struct Variable *vari = (struct Variable *)lookup($1);
+               if(vari == NULL) {
+                  yyerror("need declare firt\n");
+               } else {
+                  $$ = vari;
+               }
+            }
           | NAME LB Exprs RB
 ;
 

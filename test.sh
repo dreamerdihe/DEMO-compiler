@@ -1,6 +1,6 @@
 make clean
 make
-./demo -h test
+./demo -s test
 
 
 

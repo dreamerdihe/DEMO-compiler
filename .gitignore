@@ -4,3 +4,6 @@ a.out.dSYM
 demo 
 lex.yy.c 
 *.output
+*.i
+*.sh
+test

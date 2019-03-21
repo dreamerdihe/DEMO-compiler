@@ -1,26 +1,37 @@
 #include "stdio.h"
 #include "string.h"
+#include "symbolTable.h"
 
 int yyparse( );
 int syntax_error;
 extern FILE *yyin;
 FILE *oput;
-int globalRg = 0;
-int globalLabel = 0;
+int globalRg = -1;
+int globalLabel = -1;
 
 int main( int argc, char *argv[] ) {
+  oput = fopen("result.i", "w");
   if(argc == 3) {
       if(strcmp(argv[1], "-h") == 0) {
           yyin = fopen(argv[2], "r");
           printf("read from file\n");
-      } else {
+          yyparse();
+          fclose(oput);
+      } else if(strcmp(argv[1], "-s") == 0) {
+          yyin = fopen(argv[2], "r");
+          printf("read from file\n");
+          yyparse();
+          printHashTable();
+          fclose(oput);
+      }
+      else {
           printf("now the programme only support -h option.\n");
+          return 0;
       }
   } else {
       yyin = stdin;
+      yyparse();      
   }
-
-  yyparse();
 
   if (syntax_error == 0) {
     fprintf(stderr,"Parser succeeds.\n");

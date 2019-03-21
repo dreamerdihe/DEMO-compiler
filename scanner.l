@@ -4,6 +4,7 @@
 #include "parser.tab.h"
 #include "string.h"
 #ifdef FLEX_SCANNER
+
 extern int yylineno;
 #define YYINCR(n) yylineno += n
 #else
@@ -126,9 +127,9 @@ CHARCONST ['][A-Za-z0-9]+[']
 
 {RP} { return RP; }
 
-{NUMBER} { lexeme = ssave(yytext); return NUMBER; }
+{NUMBER} { yylval.string = ssave(yytext); return NUMBER; }
 
-{NAME} { lexeme = ssave(yytext); return NAME; }
+{NAME} { yylval.string = ssave(yytext); return NAME; }
 
 {CHARCONST} { lexeme = ssave(yytext); return CHARCONST; }
 

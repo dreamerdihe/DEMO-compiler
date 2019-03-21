@@ -8,3 +8,12 @@ typedef enum {
     cbr, cmp_LT, cmp_LE, cmp_GT, cmp_GE, cmp_EQ, cmp_NE, halt, read,
     cread, output, coutput, write, cwrite
 } OpCode;
+
+extern int globalRg;
+extern int globalLabel;
+
+void Emit(int labelId, OpCode opcode, int addr0, int addr1, int addr2);
+
+int Nextlabel(void);
+
+int NextRegister(void);

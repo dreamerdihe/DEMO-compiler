@@ -2,15 +2,12 @@
 #include <string.h>
 #include "ilocEmitter.h"
 
-
 int NextRegister() {
-    extern int globalRg;
     globalRg++;
     return globalRg;
 }
 
 int Nextlabel() {
-    extern int globalLabel;
     globalLabel++;
     return globalLabel;
 }
@@ -21,7 +18,7 @@ void Emit(int labelId, OpCode opcode, int addr0, int addr1, int addr2) {
     if(labelId > -1) {
         *label = sprintf(label, "L%d:", labelId);
     }
-
+    
     switch (opcode)
     {
         case nop:

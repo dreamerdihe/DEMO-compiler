@@ -2,6 +2,17 @@
     "files.associations": {
         "iloc.h": "c",
         "cstdlib": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "unordered_map": "cpp",
+        "string": "cpp",
+        "istream": "cpp",
+        "optional": "cpp",
+        "ostream": "cpp",
+        "system_error": "cpp",
+        "type_traits": "cpp",
+        "array": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "symboltable.h": "c"
     }
 }
