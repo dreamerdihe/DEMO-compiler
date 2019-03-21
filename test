@@ -4,5 +4,5 @@ procedure test {
   int ccc;
   aaa = 1;
   bbb = 10;
-  ccc = 4444 - bbb;
+  ccc = 1000 / bbb;
 }

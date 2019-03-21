@@ -198,7 +198,6 @@ Expr : Expr ADD Term
       }
      | Expr MINUS Term
      {
-        // TODO how about the case that c - r
          Variable *result = malloc(sizeof(Variable));
          Variable *left = (Variable *)$1;
          Variable *right = (Variable *)$3;
@@ -233,9 +232,62 @@ Expr : Expr ADD Term
 
 Term : Term MULTI Factor
       {
-         
+         Variable *result = malloc(sizeof(Variable));
+         Variable *left = (Variable *)$1;
+         Variable *right = (Variable *)$3;
+         printf("\ncheck immd left->%d, right->%d\n", left->isI, right->isI);
+         if(left->isI == 1 && right->isI == 1) {
+            int immd = left->value * right->value;
+            result->value = immd;
+            result->isI = 1;
+            $$ = (struct Variable*)result;   
+         } else if(left->isI == 1 && right->isI == 0) {
+            int addr0 = right->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, multI, addr0, left->value, result->registerNumber);
+         } else if(left->isI == 0 && right->isI == 1) {
+            int addr0 = left->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, multI, addr0, right->value, result->registerNumber);
+         } else {
+            int addr0 = left->registerNumber;
+            int addr1 = right->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, mult, addr0, addr1, result->registerNumber);
+         }
+
+         $$ = (struct Variable*)result;
       }
-     | Term DIVID Factor   
+     | Term DIVID Factor
+     {
+         Variable *result = malloc(sizeof(Variable));
+         Variable *left = (Variable *)$1;
+         Variable *right = (Variable *)$3;
+         printf("\ncheck immd left->%d, right->%d\n", left->isI, right->isI);
+         if(left->isI == 1 && right->isI == 1) {
+            int immd = left->value / right->value;
+            result->value = immd;
+            result->isI = 1;
+            $$ = (struct Variable*)result;   
+         }  else if(left->isI == 0 && right->isI == 1) {
+            int addr0 = left->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, divI, addr0, right->value, result->registerNumber);
+         }  else if(left->isI == 1 && right->isI == 0) {
+            int addr1 = right->registerNumber;
+            result->registerNumber = NextRegister();
+            int newRegister = NextRegister();
+            Emit(-1, loadI, left->value, newRegister, -1);
+            Emit(-1, _div, newRegister, addr1, result->registerNumber);
+         }  else {
+            int addr0 = left->registerNumber;
+            int addr1 = right->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, _div, addr0, addr1, result->registerNumber);
+         }
+
+         $$ = (struct Variable*)result;
+     } 
      | Factor
        {$$ = $1;}
 ;
