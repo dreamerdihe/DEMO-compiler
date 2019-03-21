@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "iloc.h": "c",
+        "cstdlib": "c",
+        "stdio.h": "c"
+    }
+}

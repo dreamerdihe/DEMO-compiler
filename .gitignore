@@ -1,0 +1,6 @@
+a.out.dSYM
+*.tab.c 
+*.tab.h 
+demo 
+lex.yy.c 
+*.output
