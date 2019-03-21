@@ -213,12 +213,11 @@ Expr : Expr ADD Term
             result->registerNumber = NextRegister();
             Emit(-1, subI, addr0, right->value, result->registerNumber);
          }  else if(left->isI == 1 && right->isI == 0) {
-            int addr0 = right->registerNumber;
+            int addr1 = right->registerNumber;
             result->registerNumber = NextRegister();
-            Emit(-1, subI, addr0, left->value, result->registerNumber);
             int newRegister = NextRegister();
-            Emit(-1, multI, result->registerNumber, -1, newRegister);
-            result->registerNumber = newRegister;
+            Emit(-1, loadI, left->value, newRegister, -1);
+            Emit(-1, sub, newRegister, addr1, result->registerNumber);
          }  else {
             int addr0 = left->registerNumber;
             int addr1 = right->registerNumber;
@@ -233,6 +232,9 @@ Expr : Expr ADD Term
 ;
 
 Term : Term MULTI Factor
+      {
+         
+      }
      | Term DIVID Factor   
      | Factor
        {$$ = $1;}
