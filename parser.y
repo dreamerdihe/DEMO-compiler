@@ -96,8 +96,14 @@ Stmt : Reference ASSIGNOP Expr SEMI
          Variable* node3 = (Variable*)$3;
 
          int addr1 = node1->registerNumber;
-         int value = node3->value;
-         Emit(-1, loadI, value, addr1, -1);
+         if(node3->isI == 1) {
+            int value = node3->value;
+            Emit(-1, loadI, value, addr1, -1);
+            node1->value = value;
+         } else {
+            int addr0 = node3->registerNumber;
+            Emit(-1, load, addr0, addr1, -1);
+         }
       }
      | Reference ADD ASSIGNOP Expr SEMI
          {yyerror("Do not use plus equal in demo"); yyerrok;}
@@ -164,7 +170,31 @@ RelExpr : RelExpr LT Expr
 
 Expr : Expr ADD Term
       {
-         
+         Variable *result = malloc(sizeof(Variable));
+         Variable *left = (Variable *)$1;
+         Variable *right = (Variable *)$3;
+         printf("\ncheck immd left->%d, right->%d\n", left->isI, right->isI);
+         if(left->isI == 1 && right->isI == 1) {
+            int immd = left->value + right->value;
+            result->value = immd;
+            result->isI = 1;
+            $$ = (struct Variable*)result;   
+         } else if(left->isI == 1 && right->isI == 0) {
+            int addr0 = right->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, addI, addr0, left->value, result->registerNumber);
+         } else if(left->isI == 0 && right->isI == 1) {
+            int addr0 = left->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, addI, addr0, right->value, result->registerNumber);
+         } else {
+            int addr0 = left->registerNumber;
+            int addr1 = right->registerNumber;
+            result->registerNumber = NextRegister();
+            Emit(-1, add, addr0, addr1, result->registerNumber);
+         }
+
+         $$ = (struct Variable*)result;
       }
      | Expr MINUS Term
      | Term
@@ -178,17 +208,21 @@ Term : Term MULTI Factor
 ;
 
 Factor : LP Expr RP
-       | Reference
+       | Reference {
+          {$$ = $1;}
+       }
        | NUMBER 
          {
             Variable *v = malloc(sizeof(Variable));
             v->value = atoi($1);
+            v->isI = 1;
             $$ = (struct Variable*)v;
          }
        | CHARCONST
          {
             Variable *v = malloc(sizeof(Variable));
             v->value = (int)$1;
+            v->isI = 1;
             $$ = (struct Variable*)v;
          }
 ;
@@ -206,7 +240,7 @@ Reference : NAME
 ;
 
 Exprs : Expr COMMA Exprs
-     | Expr
+      | Expr
 ;
 
 %%

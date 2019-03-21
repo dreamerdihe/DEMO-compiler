@@ -6,6 +6,7 @@
 typedef struct{
     char *name;
     int value;
+    int isI; // 0 false, 1 true;
     int type;
     int registerNumber;
 } Variable;

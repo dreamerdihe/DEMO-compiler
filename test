@@ -3,6 +3,6 @@ procedure test {
   int bbb;
   int ccc;
   aaa = 1;
-  bbb = 2;
-  ccc = aaa + bbb;
+  bbb = 10;
+  ccc = 33 + 22;
 }

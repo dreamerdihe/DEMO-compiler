@@ -4,6 +4,7 @@ Variable * getVariable(char *name, int type, int registerNumber) {
     Variable * v = malloc(sizeof(Variable));
     v->name = name;
     v->type = type;
+    v->isI = 0;
     v->registerNumber = registerNumber;
     return v;
 }
@@ -103,7 +104,13 @@ void printHashTable() {
                 } else if(np->value->type == 1) {
                     type = "char";
                 }
-				printf("%s,\t%s,\tr%d", np->value->name, type, np->value->registerNumber);
+                char* isI;
+                if(np->value->isI == 0) {
+                    isI = "not immediate";
+                } else {
+                    isI = "is immediate";
+                }
+				printf("%s,\t%s,\tr%d,\t%s,\t%d", np->value->name, type, np->value->registerNumber, isI, np->value->value);
 			}
 			printf("\n");
 		}
