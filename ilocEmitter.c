@@ -133,22 +133,22 @@ void Emit(int labelId, OpCode opcode, int addr0, int addr1, int addr2) {
             fprintf(oput, "%s\t cbr      r%d     \t=> L%d, L%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_LT:
-            fprintf(oput, "%s\t cmp_LT   r%d     \t=> r%d, r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_LT   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_LE:
-            fprintf(oput, "%s\t cmp_LE   r%d     \t=> r%d, r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_LE   rr%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_GT:
-            fprintf(oput, "%s\t cmp_GT   r%d     \t=> r%d, r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_GT   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_GE:
-            fprintf(oput, "%s\t cmp_GE   r%d     \t=> r%d, r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_GE   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_EQ:
-            fprintf(oput, "%s\t cmp_EQ   r%d     \t=> r%d, r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_EQ   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_NE:
-            fprintf(oput, "%s\t cmp_NE   r%d     \t=> r%d, r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_NE   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;  
         case halt:
             fprintf(oput, "%s\t halt \n", label);

@@ -6,7 +6,7 @@ lex.yy.c
 *.output
 *.i
 *.sh
-test
+test.demo
 testcase
 reference
 .vscode
