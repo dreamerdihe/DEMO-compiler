@@ -102,7 +102,7 @@ Stmt : Reference ASSIGNOP Expr SEMI
             node1->value = value;
          } else {
             int addr0 = node3->registerNumber;
-            Emit(-1, load, addr0, addr1, -1);
+            Emit(-1, i2i, addr0, addr1, -1);
          }
       }
      | Reference ADD ASSIGNOP Expr SEMI
@@ -122,6 +122,15 @@ Stmt : Reference ASSIGNOP Expr SEMI
                      ELSE Stmt
      | READ Reference SEMI
      | WRITE Expr SEMI
+     {
+        Variable *node = (Variable *)$2;
+        int addr0 = node->registerNumber;
+        if(node->type == 0) {
+           Emit(-1, write, addr0, -1, -1);
+        } else if(node->type == 1) {
+           Emit(-1, cwrite, addr0, -1, -1);
+        }
+     }
      | NAME NAME SEMI
        {yyerror("Invalid expression"); yyerrok;}
      | error
