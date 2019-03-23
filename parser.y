@@ -38,7 +38,8 @@ void yyerror( char *s );
 %token NOT OR AND
 %token LT LE EQ NE GE GT
 %token ADD MINUS MULTI DIVID
-%token <string> CHARCONST NUMBER
+%token <string>  NUMBER
+%token <string> CHARCONST
 %token ENDOFFILE
 %start Procedure
 
@@ -95,15 +96,24 @@ Stmt : Reference ASSIGNOP Expr SEMI
          Variable* node1 = (Variable*)$1;
          Variable* node3 = (Variable*)$3;
 
-         int addr1 = node1->registerNumber;
-         if(node3->isI == 1) {
+         if(node1->type == 0) { // it is an int
+            int addr1 = node1->registerNumber;
+            if(node3->isI == 1) {
+               int value = node3->value;
+               Emit(-1, loadI, value, addr1, -1);
+               node1->value = value;
+            } else {
+               int addr0 = node3->registerNumber;
+               Emit(-1, i2i, addr0, addr1, -1);
+            }
+         } else if(node1->type == 1) {// it is a char
+            int addr0 = NextRegister();
             int value = node3->value;
-            Emit(-1, loadI, value, addr1, -1);
-            node1->value = value;
-         } else {
-            int addr0 = node3->registerNumber;
-            Emit(-1, i2i, addr0, addr1, -1);
+            Emit(-1, loadI, value, addr0, -1);
+            int addr1 = node1->registerNumber;
+            Emit(-1, i2c, addr0, addr1, -1);
          }
+         
       }
      | Reference ADD ASSIGNOP Expr SEMI
          {yyerror("Do not use plus equal in demo"); yyerrok;}
@@ -315,7 +325,7 @@ Factor : LP Expr RP
        | CHARCONST
          {
             Variable *v = malloc(sizeof(Variable));
-            v->value = (int)$1;
+            v->value = (int)$1[1];
             v->isI = 1;
             $$ = (struct Variable*)v;
          }

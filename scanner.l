@@ -131,7 +131,7 @@ CHARCONST ['][A-Za-z0-9]+[']
 
 {NAME} { yylval.string = ssave(yytext); return NAME; }
 
-{CHARCONST} { lexeme = ssave(yytext); return CHARCONST; }
+{CHARCONST} { yylval.string = ssave(yytext); return CHARCONST; }
 
 [\n] { YYINCR(1); }
 %%
