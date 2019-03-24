@@ -110,6 +110,7 @@ IfStmt : IF LP Bool RP
             Emit(-1, cbr, bool->registerNumber, ifstmt->label1, ifstmt->label2);
             Emit(ifstmt->label1, nop, -1, -1, -1);
          }
+;
 
 ForStmt : FOR NAME ASSIGNOP Expr TO
             Expr BY Expr 
@@ -152,7 +153,8 @@ ForStmt : FOR NAME ASSIGNOP Expr TO
                forstmt->byExpr = byExpr;
                $$ = (struct ForStmt*)forstmt;
             }
-            
+;
+
 WhileHead : WHILE LP
              {
                WhileStmt *whilestmt = malloc(sizeof(WhileStmt));
@@ -160,6 +162,7 @@ WhileHead : WHILE LP
                Emit(whilestmt->boolLabel, nop, -1, -1, -1);
                $$ = (struct WhileStmt *)whilestmt;
             }
+;
 
 WhileStmt : WhileHead Bool RP 
             {
@@ -175,6 +178,7 @@ WhileStmt : WhileHead Bool RP
                Emit(-1, cbr, whilestmt->addr, whilestmt->label, whilestmt->exit);
                Emit(whilestmt->label, nop, -1, -1, -1);
             }
+;
 
 IfStmtElse : IfStmt THEN WithElse ELSE 
             {
@@ -183,28 +187,25 @@ IfStmtElse : IfStmt THEN WithElse ELSE
                Emit(ifstmt->label2, nop, -1, -1, -1);
                $$ = (struct IfStmt *)ifstmt;
             }
+;
 
 Stmt : Reference ASSIGNOP Expr SEMI 
       {
-         Variable* node1 = (Variable*)$1;
-         Variable* node3 = (Variable*)$3;
+         Variable* result = (Variable*)$1;
+         Variable* value = (Variable*)$3;
 
-         if(node1->type == 0) { // it is an int
-            int addr1 = node1->registerNumber;
-            if(node3->isI == 1) {
-               int value = node3->value;
-               Emit(-1, loadI, value, addr1, -1);
-               node1->value = value;
+         if(value->isI == 0) {
+            Emit(-1, load, value->registerNumber, result->registerNumber, -1);
+         } else {
+            if(value->type == 0) {
+               Emit(-1, loadI, value->value, result->registerNumber, -1);
+               result->value = value->value;
             } else {
-               int addr0 = node3->registerNumber;
-               Emit(-1, i2i, addr0, addr1, -1);
+               Emit(-1, loadI, value->value, result->registerNumber, -1);
+               int newAddr = NextRegister();
+               Emit(-1, i2c, result->registerNumber, newAddr, -1);
+               result->registerNumber = newAddr;
             }
-         } else if(node1->type == 1) {// it is a char
-            int addr0 = NextRegister();
-            int value = node3->value;
-            Emit(-1, loadI, value, addr0, -1);
-            int addr1 = node1->registerNumber;
-            Emit(-1, i2c, addr0, addr1, -1);
          }
       }
      | Reference ADD ASSIGNOP Expr SEMI
@@ -355,8 +356,22 @@ WithElse : IfStmtElse WithElse
          }
          | error ';' {yyerror("Redundent ';'"); yyclearin; yyerrok;}
          | error
+;
 
 Bool : NOT OrTerm
+      {
+         Variable *bool = (Variable *)$2;
+         Variable *result = malloc(sizeof(Variable));
+         result->registerNumber = NextRegister();
+
+         if(bool->isI == 1) {
+            bool->registerNumber = NextRegister();
+            Emit(-1, loadI, bool->value, bool->registerNumber, -1);
+         }
+
+         Emit(-1, not, bool->registerNumber, result->registerNumber, -1);
+         $$ = (struct Variable*)result;
+      }
      | OrTerm
       {
          $$ = $1;
@@ -364,6 +379,26 @@ Bool : NOT OrTerm
 ;
 
 OrTerm : OrTerm OR AndTerm
+         {
+            Variable *left = (Variable *)$1;
+            Variable *right = (Variable *)$3;
+            Variable *result = malloc(sizeof(Variable));
+            result->registerNumber = NextRegister();
+
+            if(left->isI == 1) {
+               left->registerNumber = NextRegister();
+               Emit(-1, loadI, left->value, left->registerNumber, -1);
+            }
+
+            if(right->isI == 1) {
+               right->registerNumber = NextRegister();
+               Emit(-1, loadI, right->value, right->registerNumber, -1);
+            }
+
+            Emit(-1, or, left->registerNumber, right->registerNumber, result->registerNumber);
+            $$ = (struct Variable*)result;
+         
+         }
        | AndTerm
        {
           $$ = $1;
@@ -371,6 +406,25 @@ OrTerm : OrTerm OR AndTerm
 ;
 
 AndTerm : AndTerm AND RelExpr
+         {
+            Variable *left = (Variable *)$1;
+            Variable *right = (Variable *)$3;
+            Variable *result = malloc(sizeof(Variable));
+            result->registerNumber = NextRegister();
+
+            if(left->isI == 1) {
+               left->registerNumber = NextRegister();
+               Emit(-1, loadI, left->value, left->registerNumber, -1);
+            }
+
+            if(right->isI == 1) {
+               right->registerNumber = NextRegister();
+               Emit(-1, loadI, right->value, right->registerNumber, -1);
+            }
+
+            Emit(-1, and, left->registerNumber, right->registerNumber, result->registerNumber);
+            $$ = (struct Variable*)result;
+         }
         | RelExpr
         {
            $$ = $1;
