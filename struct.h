@@ -3,7 +3,7 @@
 typedef struct{
     int label1;
     int label2;
-    int label3;
+    int exit;
 } IfStmt;
 
 typedef struct{

@@ -48,7 +48,7 @@ void yyerror( char *s );
 
 %type<variable> Factor Term Expr Stmt Stmts Reference
 %type<variable> Bool OrTerm AndTerm RelExpr
-%type<ifStmt> IfStmt WithElse
+%type<ifStmt> IfStmt WithElse IfStmtElse
 %type<forStmt> ForStmt
 %type<whileStmt> WhileStmt WhileHead
 
@@ -103,7 +103,7 @@ IfStmt : IF LP Bool RP
             IfStmt *ifstmt = malloc(sizeof(IfStmt));
             ifstmt->label1 = Nextlabel();
             ifstmt->label2 = Nextlabel();
-            ifstmt->label3 = Nextlabel();
+            ifstmt->exit = Nextlabel();
 
             $$ = (struct IfStmt*)ifstmt;
             Variable *bool = (Variable *)$3;
@@ -152,6 +152,7 @@ ForStmt : FOR NAME ASSIGNOP Expr TO
                forstmt->byExpr = byExpr;
                $$ = (struct ForStmt*)forstmt;
             }
+            
 WhileHead : WHILE LP
              {
                WhileStmt *whilestmt = malloc(sizeof(WhileStmt));
@@ -173,6 +174,14 @@ WhileStmt : WhileHead Bool RP
                $$ = (struct WhileStmt *)whilestmt;
                Emit(-1, cbr, whilestmt->addr, whilestmt->label, whilestmt->exit);
                Emit(whilestmt->label, nop, -1, -1, -1);
+            }
+
+IfStmtElse : IfStmt THEN WithElse ELSE 
+            {
+               IfStmt *ifstmt = (IfStmt *)$1;
+               Emit(-1, br, ifstmt->exit, -1, -1);
+               Emit(ifstmt->label2, nop, -1, -1, -1);
+               $$ = (struct IfStmt *)ifstmt;
             }
 
 Stmt : Reference ASSIGNOP Expr SEMI 
@@ -232,8 +241,12 @@ Stmt : Reference ASSIGNOP Expr SEMI
          IfStmt *ifstmt = (IfStmt *)$1;
          Emit(ifstmt->label2, nop, -1, -1, -1);
       }
-     | IfStmt THEN WithElse
-                     ELSE Stmt
+     | IfStmtElse WithElse 
+     {
+        IfStmt *ifstmt = (IfStmt *)$1;
+        Emit(-1, br, ifstmt->exit, -1, -1);
+        Emit(ifstmt->exit, nop, -1, -1, -1);
+     }
      | READ Reference SEMI
      | WRITE Expr SEMI
      {
@@ -263,8 +276,7 @@ Stmt : Reference ASSIGNOP Expr SEMI
      | error
 ;
 
-WithElse : IfStmt THEN WithElse 
-                         ELSE WithElse
+WithElse : IfStmtElse WithElse
          | Reference ASSIGNOP Expr SEMI
          {
             Variable* node1 = (Variable*)$1;
@@ -297,9 +309,26 @@ WithElse : IfStmt THEN WithElse
          | LC Stmts RC
          | LC RC
             {yyerror("Empty expression "); yyerrok;}
-         | WHILE LP Bool RP LC Stmts RC
-         | FOR NAME ASSIGNOP Expr TO
-            Expr BY Expr LC Stmts RC
+         | WhileStmt LC Stmts RC
+         {
+            WhileStmt * whilestmt = (WhileStmt *)$1;
+            Emit(-1, br, whilestmt->boolLabel, -1, -1);
+            Emit(whilestmt->exit, nop, -1, -1, -1);
+         }
+         | ForStmt LC Stmts RC
+         {
+               ForStmt *forstmt = (ForStmt *)$1;
+               if(forstmt->byExpr->isI == 1) {
+                  Emit(-1, addI, forstmt->addr, forstmt->byExpr->value, forstmt->addr);
+               } else {
+                  Emit(-1, add, forstmt->addr, forstmt->byExpr->registerNumber, forstmt->addr);
+               }
+
+               int addrBool = NextRegister();
+               Emit(-1, cmp_LE, forstmt->addr, forstmt->addrUpper, addrBool);
+               Emit(-1, cbr, addrBool, forstmt->label, forstmt->exit);
+               Emit(forstmt->exit, nop, -1, -1, -1);
+         }
          | READ Reference SEMI
          | WRITE Expr SEMI
          {
