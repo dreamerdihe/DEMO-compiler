@@ -11,6 +11,10 @@ typedef struct node{
 	struct node * next;
 }node;
 
+extern int globalBase;
+
+int nextBase(Array *);
+
 static node * hashtable[HASHSIZE];
 
 Variable * getVariable(char *, int, int);

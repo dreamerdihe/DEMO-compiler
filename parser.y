@@ -23,6 +23,9 @@ void yyerror( char *s );
    struct IfStmt *ifStmt;
    struct ForStmt *forStmt;
    struct WhileStmt *whileStmt;
+   struct Array *array;
+   struct Dim *dim; 
+   struct Indices *index;
 }
 
 %token PROCEDURE
@@ -46,11 +49,14 @@ void yyerror( char *s );
 %token ENDOFFILE
 %start Procedure
 
-%type<variable> Factor Term Expr Stmt Stmts Reference
+%type<variable> Factor Term Stmt Expr Stmts Reference 
 %type<variable> Bool OrTerm AndTerm RelExpr
 %type<ifStmt> IfStmt WithElse IfStmtElse
 %type<forStmt> ForStmt
 %type<whileStmt> WhileStmt WhileHead
+%type<dim> Bound
+%type<array> Bounds
+%type<index> Exprs
 
 %%
 Procedure : PROCEDURE NAME 
@@ -85,13 +91,43 @@ Spec : NAME
          insert($1, getVariable($1, type, registerNumber));
       }
      | NAME LB Bounds RB
+      {
+         Array *array = (Array *)$3;
+         array->type = type;
+         array->base = nextBase(array);// upadte the base for next
+         Variable *vari = getVariable($1, type, array->base);
+         vari->array = array;
+         insert($1, vari);
+      }   
 ;
 
 Bounds : Bounds COMMA Bound
-       | Bound
+         {
+            Array *array = (Array *)$1;
+            Dim *dim = (Dim *)$3;
+            array->dim++;
+            array->dims[array->dim - 1][0] = dim->lower;
+            array->dims[array->dim - 1][1] = dim->upper;  
+            $$ = (struct Array *)array;  
+         }
+       | Bound 
+       {
+         Array *array = malloc(sizeof(Array));
+         Dim *dim = (Dim *)$1;
+         array->dim = 1;
+         array->dims[array->dim - 1][0] = dim->lower;
+         array->dims[array->dim - 1][1] = dim->upper;
+         $$ = (struct Array *)array;
+       }
 ;
 
 Bound : NUMBER COLON NUMBER
+      {
+         Dim *dim = malloc(sizeof(Dim));
+         dim->lower = atoi($1);
+         dim->upper = atoi($3);
+         $$ = (struct Dim *)dim;
+      }
 ;
 
 Stmts : Stmts Stmt
@@ -119,7 +155,6 @@ ForStmt : FOR NAME ASSIGNOP Expr TO
                if(vari == NULL) {
                   yyerror("need declare firt\n");
                } 
-
                ForStmt *forstmt = malloc(sizeof(ForStmt));
                forstmt->label = Nextlabel();
                forstmt->exit = Nextlabel();
@@ -194,17 +229,27 @@ Stmt : Reference ASSIGNOP Expr SEMI
          Variable* result = (Variable*)$1;
          Variable* value = (Variable*)$3;
 
-         if(value->isI == 0) {
-            Emit(-1, load, value->registerNumber, result->registerNumber, -1);
-         } else {
-            if(value->type == 0) {
-               Emit(-1, loadI, value->value, result->registerNumber, -1);
-               result->value = value->value;
+         if(result->array == NULL) {
+            if(value->isI == 0) {
+               Emit(-1, load, value->registerNumber, result->registerNumber, -1);
             } else {
-               Emit(-1, loadI, value->value, result->registerNumber, -1);
-               int newAddr = NextRegister();
-               Emit(-1, i2c, result->registerNumber, newAddr, -1);
-               result->registerNumber = newAddr;
+               if(value->type == 0) {
+                  Emit(-1, loadI, value->value, result->registerNumber, -1);
+                  result->value = value->value;
+               } else {
+                  Emit(-1, loadI, value->value, result->registerNumber, -1);
+                  int newAddr = NextRegister();
+                  Emit(-1, i2c, result->registerNumber, newAddr, -1);
+                  result->registerNumber = newAddr;
+               }
+            }
+         } else {
+            if(value->isI == 0) {
+               Emit(-1, store, value->registerNumber, result->registerNumber, -1);
+            } else {
+               int tempReg = NextRegister();
+               Emit(-1, loadI, value->value, tempReg, -1);
+               Emit(-1, store, tempReg, result->registerNumber, -1);
             }
          }
       }
@@ -251,26 +296,32 @@ Stmt : Reference ASSIGNOP Expr SEMI
      | READ Reference SEMI
      | WRITE Expr SEMI
      {
-        Variable *node = (Variable *)$2;
-        if(node->isI == 1) { 
-           int addr1 = NextRegister();
-           if(node->type == 0) {
-              Emit(-1, loadI, node->value, addr1, -1);
-              Emit(-1, write, addr1, -1, -1);
-           } else {
-              int addr = NextRegister();
-              Emit(-1, loadI, node->value, addr, -1);
-              Emit(-1, i2c, addr, addr1, -1);
-              Emit(-1, cwrite, addr1, -1, -1);
-           }
-        } else {
-            int addr0 = node->registerNumber;
-            if(node->type == 0) {
-               Emit(-1, write, addr0, -1, -1);
-            } else if(node->type == 1) {
-               Emit(-1, cwrite, addr0, -1, -1);
+         Variable *node = (Variable *)$2;
+         if(node->array == NULL) {
+            if(node->isI == 1) { 
+               int addr1 = NextRegister();
+               if(node->type == 0) {
+                  Emit(-1, loadI, node->value, addr1, -1);
+                  Emit(-1, write, addr1, -1, -1);
+               } else {
+                  int addr = NextRegister();
+                  Emit(-1, loadI, node->value, addr, -1);
+                  Emit(-1, i2c, addr, addr1, -1);
+                  Emit(-1, cwrite, addr1, -1, -1);
+               }
+            } else {
+               int addr0 = node->registerNumber;
+               if(node->type == 0) {
+                  Emit(-1, write, addr0, -1, -1);
+               } else if(node->type == 1) {
+                  Emit(-1, cwrite, addr0, -1, -1);
+               }
             }
-        }
+         } else {
+            int result = NextRegister();
+            Emit(-1, load, node->registerNumber, result, -1);
+            Emit(-1, write, result, -1, -1);
+         }
      }
      | NAME NAME SEMI
        {yyerror("Invalid expression"); yyerrok;}
@@ -280,25 +331,31 @@ Stmt : Reference ASSIGNOP Expr SEMI
 WithElse : IfStmtElse WithElse
          | Reference ASSIGNOP Expr SEMI
          {
-            Variable* node1 = (Variable*)$1;
-            Variable* node3 = (Variable*)$3;
+            Variable* result = (Variable*)$1;
+            Variable* value = (Variable*)$3;
 
-            if(node1->type == 0) { // it is an int
-               int addr1 = node1->registerNumber;
-               if(node3->isI == 1) {
-                  int value = node3->value;
-                  Emit(-1, loadI, value, addr1, -1);
-                  node1->value = value;
+            if(result->array == NULL) {
+               if(value->isI == 0) {
+                  Emit(-1, load, value->registerNumber, result->registerNumber, -1);
                } else {
-                  int addr0 = node3->registerNumber;
-                  Emit(-1, i2i, addr0, addr1, -1);
+                  if(value->type == 0) {
+                     Emit(-1, loadI, value->value, result->registerNumber, -1);
+                     result->value = value->value;
+                  } else {
+                     Emit(-1, loadI, value->value, result->registerNumber, -1);
+                     int newAddr = NextRegister();
+                     Emit(-1, i2c, result->registerNumber, newAddr, -1);
+                     result->registerNumber = newAddr;
+                  }
                }
-            } else if(node1->type == 1) {// it is a char
-               int addr0 = NextRegister();
-               int value = node3->value;
-               Emit(-1, loadI, value, addr0, -1);
-               int addr1 = node1->registerNumber;
-               Emit(-1, i2c, addr0, addr1, -1);
+            } else {
+               if(value->isI == 0) {
+                  Emit(-1, store, value->registerNumber, result->registerNumber, -1);
+               } else {
+                  int tempReg = NextRegister();
+                  Emit(-1, loadI, value->value, tempReg, -1);
+                  Emit(-1, store, tempReg, result->registerNumber, -1);
+               }
             }
          }
          | Reference ADD ASSIGNOP Expr SEMI
@@ -870,16 +927,79 @@ Reference : NAME
             {
                struct Variable *vari = (struct Variable *)lookup($1);
                if(vari == NULL) {
-                  yyerror("need declare firt\n");
+                  yyerror("need declare first\n");
                } else {
                   $$ = vari;
                }
             }
           | NAME LB Exprs RB
+            {
+               Variable *array = lookup($1);
+               if(array == NULL) {
+                  yyerror("need declare first\n");
+               }
+               if(array->array == NULL) {
+                  yyerror("not refered an array");
+               }
+               Indices *index = (Indices *)$3;
+               int bytes = array->array->type == 0? 4 : 1;
+               
+               int indexAddr = NextRegister(); // base
+               Emit(-1, loadI, array->array->base, indexAddr, -1);
+
+               int offset = NextRegister();
+               Emit(-1, loadI, 0, offset, -1);
+               int by = 1;
+               int dims = array->array->dim;
+               int bounds[4];
+               for(int dim = 0; dim < dims; dim++) {
+                  bounds[dim] = array->array->dims[dim][1] - array->array->dims[dim][0];
+                  by *= bounds[dim];
+               }
+               for(int dim = 0; dim < dims - 1; dim++) {
+                  int tempReg = NextRegister();
+                  Emit(-1, multI, index->index[dim], by, tempReg);
+                  Emit(-1, add, offset, tempReg, offset);
+                  by /= bounds[dim];
+               }
+               
+               Emit(-1, add, offset, index->index[dims - 1], offset);
+               
+               // times sizeof(int/char)
+               Emit(-1, multI, offset, bytes, offset);
+               // base + offset
+               Emit(-1, add, indexAddr, offset, indexAddr);
+               
+               array->registerNumber = indexAddr;
+               $$ = (struct Variable *)array;
+            }
 ;
 
-Exprs : Expr COMMA Exprs
+Exprs : Exprs COMMA Expr
+      {
+         Indices *index = (Indices *)$1;
+         if(index == NULL) {
+            index = malloc(sizeof(Indices));
+            index->dim = 0;
+         }
+
+         Variable *temp = (Variable *)$3;
+         index->index[index->dim] = temp->registerNumber;
+         index->dim++;
+         $$ = (struct Indices *)index;
+      }
       | Expr
+      {  
+         Variable *vari = (Variable *)$1;
+         if(vari->isI) {
+            vari->registerNumber = NextRegister();
+            Emit(-1, loadI, vari->value, vari->registerNumber, -1);
+         }
+         Indices *index = malloc(sizeof(Indices));
+         index->index[0] = vari->registerNumber;
+         index->dim = 1;
+         $$ = (struct Indices *)index;
+      }
 ;
 
 %%

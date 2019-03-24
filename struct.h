@@ -7,11 +7,24 @@ typedef struct{
 } IfStmt;
 
 typedef struct{
+    int base;
+    int dims[4][2]; // dims[i][0] -> lower, dims[i][1] -> upper
+    int dim;
+    int type; // 0 for int, 1 for char
+} Array;
+
+typedef struct{
+    int index[4];
+    int dim;
+} Indices;
+
+typedef struct{
     char *name;
     int value;
     int isI; // 0 false, 1 true;
     int type; // 0 for int, 1 for char
     int registerNumber;
+    Array *array;
 } Variable;
 
 typedef struct{
@@ -28,4 +41,9 @@ typedef struct{
     int addr;
     int boolLabel;
 } WhileStmt;
+
+typedef struct{
+    int lower; 
+    int upper;
+} Dim;
 

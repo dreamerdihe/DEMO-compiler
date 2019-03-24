@@ -8,6 +8,7 @@ extern FILE *yyin;
 FILE *oput;
 int globalRg = -1;
 int globalLabel = -1;
+int globalBase = 0;
 
 int main( int argc, char *argv[] ) {
   oput = fopen("result.i", "w");
