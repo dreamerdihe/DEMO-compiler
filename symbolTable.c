@@ -1,5 +1,6 @@
 #include "symbolTable.h"
 
+
 Variable * getVariable(char *name, int type, int registerNumber) {
     Variable * v = malloc(sizeof(Variable));
     v->name = name;

@@ -1,15 +1,9 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
+#include "struct.h"
 
 #define HASHSIZE 200
-typedef struct{
-    char *name;
-    int value;
-    int isI; // 0 false, 1 true;
-    int type; // 0 for int, 1 for char
-    int registerNumber;
-} Variable;
 
 typedef struct node{
 	char * name;

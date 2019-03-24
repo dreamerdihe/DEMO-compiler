@@ -14,9 +14,10 @@ int Nextlabel() {
 
 void Emit(int labelId, OpCode opcode, int addr0, int addr1, int addr2) {
     extern FILE *oput;
-    char* label = "";
+    char label[10] = "";
     if(labelId > -1) {
-        *label = sprintf(label, "L%d:", labelId);
+        sprintf(label, "L%d:", labelId);
+        
     }
     
     switch (opcode)
@@ -127,16 +128,16 @@ void Emit(int labelId, OpCode opcode, int addr0, int addr1, int addr2) {
             fprintf(oput, "%s\t c2i      r%d     \t=> r%d \n", label, addr0, addr1);
             break; 
         case br:
-            fprintf(oput, "%s\t br               \t=> L%d \n", label, addr0);
+            fprintf(oput, "%s\t br               \t-> L%d \n", label, addr0);
             break;
         case cbr:
-            fprintf(oput, "%s\t cbr      r%d     \t=> L%d, L%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cbr      r%d     \t-> L%d, L%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_LT:
             fprintf(oput, "%s\t cmp_LT   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_LE:
-            fprintf(oput, "%s\t cmp_LE   rr%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
+            fprintf(oput, "%s\t cmp_LE   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
             break;
         case cmp_GT:
             fprintf(oput, "%s\t cmp_GT   r%d, r%d \t=>  r%d \n", label, addr0, addr1, addr2);
