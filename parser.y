@@ -312,6 +312,26 @@ Stmt : Reference ASSIGNOP Expr SEMI
         Emit(ifstmt->exit, nop, -1, -1, -1);
      }
      | READ Reference SEMI
+     {
+        Variable *target = (Variable *)$2;
+        if(target->array == NULL) { // not array
+            if(target->type == 0) { // int
+               Emit(-1, read, target->registerNumber, -1, -1);
+            } else {
+               Emit(-1, cread, target->registerNumber, -1, -1);
+            }
+        } else {
+           if(target->type == 0) { // int
+               int intAddr = NextRegister();
+               Emit(-1, read, intAddr, -1 ,-1);
+               Emit(-1, store, intAddr, target->registerNumber, -1);
+           } else { // char
+               int charAddr = NextRegister();
+               Emit(-1, cread, charAddr, -1, -1);
+               Emit(-1, cstore, charAddr, target->registerNumber, -1);
+           }
+        }
+     }
      | WRITE Expr SEMI
      {
          Variable *node = (Variable *)$2;
