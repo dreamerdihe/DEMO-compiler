@@ -1,5 +1,10 @@
 #include "stdio.h"
 #include "string.h"
+#include <stdlib.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <libgen.h> 
+#include <unistd.h>
 #include "symbolTable.h"
 
 int yyparse( );
@@ -10,16 +15,37 @@ int globalRg = -1;
 int globalLabel = -1;
 int globalBase = 0;
 
+char* getName(char *name) {
+  char* filename = basename(name);
+  int i = strlen(filename);
+  char* c = filename + i;
+
+  while(c > filename){
+    if(*c == '.') {
+      *c = 0;
+      break;
+    }
+      c--;
+  }
+  strcat(filename, ".i");
+  return filename;
+}
+
+
 int main( int argc, char *argv[] ) {
-  oput = fopen("result.i", "w");
+  
   if(argc == 3) {
       if(strcmp(argv[1], "-h") == 0) {
           yyin = fopen(argv[2], "r");
+          oput = fopen("result.i", "w");
           printf("read from file\n");
           yyparse();
           fclose(oput);
       } else if(strcmp(argv[1], "-s") == 0) {
           yyin = fopen(argv[2], "r");
+          char *name = argv[2];
+          char *filename = getName(name);
+          oput = fopen(filename , "w");
           printf("read from file\n");
           yyparse();
           printHashTable();
@@ -42,3 +68,4 @@ int main( int argc, char *argv[] ) {
 	    syntax_error);
   }
 }
+
