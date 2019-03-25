@@ -88,7 +88,9 @@ SpecList : SpecList COMMA Spec
 Spec : NAME
       {
          int registerNumber = NextRegister();  
-         insert($1, getVariable($1, type, registerNumber));
+         Variable *vari = getVariable($1, type, registerNumber);
+         vari->array = NULL;
+         insert($1, vari);
       }
      | NAME LB Bounds RB
       {
@@ -164,7 +166,11 @@ ForStmt : FOR NAME ASSIGNOP Expr TO
                if(lower->isI == 1) {
                   Emit(-1, loadI, lower->value, vari->registerNumber, -1);
                } else {
-                  Emit(-1, load, lower->registerNumber, vari->registerNumber, -1);
+                  if(lower->type == 0) { // int
+                     Emit(-1, i2i, lower->registerNumber, vari->registerNumber, -1);
+                  } else { // char
+                     Emit(-1, c2c, lower->registerNumber, vari->registerNumber, -1);
+                  }
                }
 
                Variable *upper = (Variable *)$6;
@@ -231,7 +237,11 @@ Stmt : Reference ASSIGNOP Expr SEMI
 
          if(result->array == NULL) {
             if(value->isI == 0) {
-               Emit(-1, load, value->registerNumber, result->registerNumber, -1);
+                  if(value->type == 0) { // int
+                     Emit(-1, i2i, value->registerNumber, result->registerNumber, -1);
+                  } else { // char
+                     Emit(-1, c2c, value->registerNumber, result->registerNumber, -1);
+                  }
             } else {
                if(value->type == 0) {
                   Emit(-1, loadI, value->value, result->registerNumber, -1);
@@ -247,9 +257,17 @@ Stmt : Reference ASSIGNOP Expr SEMI
             if(value->isI == 0) {
                Emit(-1, store, value->registerNumber, result->registerNumber, -1);
             } else {
-               int tempReg = NextRegister();
-               Emit(-1, loadI, value->value, tempReg, -1);
-               Emit(-1, store, tempReg, result->registerNumber, -1);
+               if(value->type == 0) { // int
+                  int tempReg = NextRegister();
+                  Emit(-1, loadI, value->value, tempReg, -1);
+                  Emit(-1, store, tempReg, result->registerNumber, -1);
+               } else { // char
+                  int tempReg = NextRegister();
+                  int temptempReg = NextRegister();
+                  Emit(-1, loadI, value->value, temptempReg, -1);
+                  Emit(-1, i2c, temptempReg, tempReg, -1);
+                  Emit(-1, cstore, tempReg, result->registerNumber, -1);
+               }
             }
          }
       }
@@ -317,10 +335,17 @@ Stmt : Reference ASSIGNOP Expr SEMI
                   Emit(-1, cwrite, addr0, -1, -1);
                }
             }
-         } else {
-            int result = NextRegister();
-            Emit(-1, load, node->registerNumber, result, -1);
-            Emit(-1, write, result, -1, -1);
+         } else { // array
+            if(node->array->type == 0) { // int 
+               int result = NextRegister();
+               Emit(-1, load, node->registerNumber, result, -1);
+               Emit(-1, write, result, -1, -1);
+            } else { // char
+               int result = NextRegister();
+               Emit(-1, cload, node->registerNumber, result, -1);
+               Emit(-1, cwrite, result, -1, -1);
+            }
+            
          }
      }
      | NAME NAME SEMI
@@ -334,9 +359,13 @@ WithElse : IfStmtElse WithElse
             Variable* result = (Variable*)$1;
             Variable* value = (Variable*)$3;
 
-            if(result->array == NULL) {
+            if(result->array == NULL) { //not array
                if(value->isI == 0) {
-                  Emit(-1, load, value->registerNumber, result->registerNumber, -1);
+                  if(value->type == 0) { // int
+                     Emit(-1, i2i, value->registerNumber, result->registerNumber, -1);
+                  } else { // char
+                     Emit(-1, c2c, value->registerNumber, result->registerNumber, -1);
+                  }
                } else {
                   if(value->type == 0) {
                      Emit(-1, loadI, value->value, result->registerNumber, -1);
@@ -348,13 +377,21 @@ WithElse : IfStmtElse WithElse
                      result->registerNumber = newAddr;
                   }
                }
-            } else {
+            } else { // array
                if(value->isI == 0) {
                   Emit(-1, store, value->registerNumber, result->registerNumber, -1);
                } else {
-                  int tempReg = NextRegister();
-                  Emit(-1, loadI, value->value, tempReg, -1);
-                  Emit(-1, store, tempReg, result->registerNumber, -1);
+                  if(value->type == 0) { // int
+                     int tempReg = NextRegister();
+                     Emit(-1, loadI, value->value, tempReg, -1);
+                     Emit(-1, store, tempReg, result->registerNumber, -1);
+                  } else { // char
+                     int tempReg = NextRegister();
+                     int temptempReg = NextRegister();
+                     Emit(-1, loadI, value->value, temptempReg, -1);
+                     Emit(-1, i2c, temptempReg, tempReg, -1);
+                     Emit(-1, cstore, tempReg, result->registerNumber, -1);
+                  }
                }
             }
          }
@@ -391,26 +428,39 @@ WithElse : IfStmtElse WithElse
          | WRITE Expr SEMI
          {
             Variable *node = (Variable *)$2;
-            if(node->isI == 1) { 
-               int addr1 = NextRegister();
-               if(node->type == 0) {
-                  Emit(-1, loadI, node->value, addr1, -1);
-                  Emit(-1, write, addr1, -1, -1);
+            if(node->array == NULL) {
+               if(node->isI == 1) { 
+                  int addr1 = NextRegister();
+                  if(node->type == 0) {
+                     Emit(-1, loadI, node->value, addr1, -1);
+                     Emit(-1, write, addr1, -1, -1);
+                  } else {
+                     int addr = NextRegister();
+                     Emit(-1, loadI, node->value, addr, -1);
+                     Emit(-1, i2c, addr, addr1, -1);
+                     Emit(-1, cwrite, addr1, -1, -1);
+                  }
                } else {
-                  int addr = NextRegister();
-                  Emit(-1, loadI, node->value, addr, -1);
-                  Emit(-1, i2c, addr, addr1, -1);
-                  Emit(-1, cwrite, addr1, -1, -1);
-               }
-            } else {
                   int addr0 = node->registerNumber;
                   if(node->type == 0) {
                      Emit(-1, write, addr0, -1, -1);
                   } else if(node->type == 1) {
                      Emit(-1, cwrite, addr0, -1, -1);
                   }
+               }
+            } else { // is an array
+               if(node->array->type == 0) { // int 
+                  int result = NextRegister();
+                  Emit(-1, load, node->registerNumber, result, -1);
+                  Emit(-1, write, result, -1, -1);
+               } else { // char
+                  int result = NextRegister();
+                  Emit(-1, cload, node->registerNumber, result, -1);
+                  Emit(-1, cwrite, result, -1, -1);
+               }
+               
             }
-         }
+      }
          | error ';' {yyerror("Redundent ';'"); yyclearin; yyerrok;}
          | error
 ;
@@ -786,7 +836,33 @@ Expr : Expr ADD Term
          Variable *result = malloc(sizeof(Variable));
          Variable *left = (Variable *)$1;
          Variable *right = (Variable *)$3;
-         if(left->isI == 1 && right->isI == 1) {
+        if(right->array != NULL && left->array != NULL) {
+            int leftAddr = NextRegister();
+            Emit(-1, load, left->registerNumber, leftAddr, -1);
+            int rightAddr = NextRegister();
+            Emit(-1, load, right->registerNumber, rightAddr, -1);
+            result->registerNumber = NextRegister();
+            Emit(-1, add, leftAddr, rightAddr, result->registerNumber);
+         } else if(right->array != NULL){
+            int addr = NextRegister();
+            Emit(-1, load, right->registerNumber, addr, -1);
+            result->registerNumber = NextRegister();
+            if(left->isI == 1) {
+               Emit(-1, addI, addr, left->value, result->registerNumber);
+            } else {
+               Emit(-1, add, left->registerNumber, addr, result->registerNumber);
+            }
+         } else if(left->array != NULL) {
+            int addr = NextRegister();
+            Emit(-1, load, left->registerNumber, addr, -1);
+            result->registerNumber = NextRegister();
+            if(right->isI == 1) {
+               Emit(-1, addI, addr, right->value, result->registerNumber);
+            } else {
+               Emit(-1, add, right->registerNumber, addr, result->registerNumber);
+            }
+         } else {
+            if(left->isI == 1 && right->isI == 1) {
             int immd = left->value + right->value;
             result->value = immd;
             result->isI = 1;
@@ -804,8 +880,9 @@ Expr : Expr ADD Term
             int addr1 = right->registerNumber;
             result->registerNumber = NextRegister();
             Emit(-1, add, addr0, addr1, result->registerNumber);
+            }
          }
-
+         
          $$ = (struct Variable*)result;
       }
      | Expr MINUS Term
@@ -813,26 +890,55 @@ Expr : Expr ADD Term
          Variable *result = malloc(sizeof(Variable));
          Variable *left = (Variable *)$1;
          Variable *right = (Variable *)$3;
-         if(left->isI == 1 && right->isI == 1) {
-            int immd = left->value - right->value;
-            result->value = immd;
-            result->isI = 1;
-            $$ = (struct Variable*)result;   
-         }  else if(left->isI == 0 && right->isI == 1) {
-            int addr0 = left->registerNumber;
+         if(right->array != NULL && left->array != NULL) {
+            int leftAddr = NextRegister();
+            Emit(-1, load, left->registerNumber, leftAddr, -1);
+            int rightAddr = NextRegister();
+            Emit(-1, load, right->registerNumber, rightAddr, -1);
             result->registerNumber = NextRegister();
-            Emit(-1, subI, addr0, right->value, result->registerNumber);
-         }  else if(left->isI == 1 && right->isI == 0) {
-            int addr1 = right->registerNumber;
+            Emit(-1, sub, leftAddr, rightAddr, result->registerNumber);
+         } else if(right->array != NULL){
+            int addr = NextRegister();
+            Emit(-1, load, right->registerNumber, addr, -1);
             result->registerNumber = NextRegister();
-            int newRegister = NextRegister();
-            Emit(-1, loadI, left->value, newRegister, -1);
-            Emit(-1, sub, newRegister, addr1, result->registerNumber);
-         }  else {
-            int addr0 = left->registerNumber;
-            int addr1 = right->registerNumber;
+            if(left->isI == 1) {
+               int tempReg = NextRegister();
+               Emit(-1, loadI, left->value, tempReg, -1);
+               Emit(-1, sub, tempReg, addr, result->registerNumber);
+            } else {
+               Emit(-1, sub, left->registerNumber, addr, result->registerNumber);
+            }
+         } else if(left->array != NULL) {
+            int addr = NextRegister();
+            Emit(-1, load, left->registerNumber, addr, -1);
             result->registerNumber = NextRegister();
-            Emit(-1, sub, addr0, addr1, result->registerNumber);
+            if(right->isI == 1) {
+               Emit(-1, subI, addr, right->value, result->registerNumber);
+            } else {
+               Emit(-1, sub, right->registerNumber, addr, result->registerNumber);
+            }
+         } else {
+            if(left->isI == 1 && right->isI == 1) {
+               int immd = left->value - right->value;
+               result->value = immd;
+               result->isI = 1;
+               $$ = (struct Variable*)result;   
+            }  else if(left->isI == 0 && right->isI == 1) {
+               int addr0 = left->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, subI, addr0, right->value, result->registerNumber);
+            }  else if(left->isI == 1 && right->isI == 0) {
+               int addr1 = right->registerNumber;
+               result->registerNumber = NextRegister();
+               int newRegister = NextRegister();
+               Emit(-1, loadI, left->value, newRegister, -1);
+               Emit(-1, sub, newRegister, addr1, result->registerNumber);
+            }  else {
+               int addr0 = left->registerNumber;
+               int addr1 = right->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, sub, addr0, addr1, result->registerNumber);
+            }
          }
 
          $$ = (struct Variable*)result;
@@ -846,24 +952,51 @@ Term : Term MULTI Factor
          Variable *result = malloc(sizeof(Variable));
          Variable *left = (Variable *)$1;
          Variable *right = (Variable *)$3;
-         if(left->isI == 1 && right->isI == 1) {
-            int immd = left->value * right->value;
-            result->value = immd;
-            result->isI = 1;
-            $$ = (struct Variable*)result;   
-         } else if(left->isI == 1 && right->isI == 0) {
-            int addr0 = right->registerNumber;
+         if(right->array != NULL && left->array != NULL) {
+            int leftAddr = NextRegister();
+            Emit(-1, load, left->registerNumber, leftAddr, -1);
+            int rightAddr = NextRegister();
+            Emit(-1, load, right->registerNumber, rightAddr, -1);
             result->registerNumber = NextRegister();
-            Emit(-1, multI, addr0, left->value, result->registerNumber);
-         } else if(left->isI == 0 && right->isI == 1) {
-            int addr0 = left->registerNumber;
+            Emit(-1, mult, leftAddr, rightAddr, result->registerNumber);
+         } else if(right->array != NULL){
+            int addr = NextRegister();
+            Emit(-1, load, right->registerNumber, addr, -1);
             result->registerNumber = NextRegister();
-            Emit(-1, multI, addr0, right->value, result->registerNumber);
+            if(left->isI == 1) {
+               Emit(-1, multI, addr, left->value, result->registerNumber);
+            } else {
+               Emit(-1, mult, left->registerNumber, addr, result->registerNumber);
+            }
+         } else if(left->array != NULL) {
+            int addr = NextRegister();
+            Emit(-1, load, left->registerNumber, addr, -1);
+            result->registerNumber = NextRegister();
+            if(right->isI == 1) {
+               Emit(-1, multI, addr, right->value, result->registerNumber);
+            } else {
+               Emit(-1, mult, right->registerNumber, addr, result->registerNumber);
+            }
          } else {
-            int addr0 = left->registerNumber;
-            int addr1 = right->registerNumber;
-            result->registerNumber = NextRegister();
-            Emit(-1, mult, addr0, addr1, result->registerNumber);
+            if(left->isI == 1 && right->isI == 1) {
+               int immd = left->value * right->value;
+               result->value = immd;
+               result->isI = 1;
+               $$ = (struct Variable*)result;   
+            } else if(left->isI == 1 && right->isI == 0) {
+               int addr0 = right->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, multI, addr0, left->value, result->registerNumber);
+            } else if(left->isI == 0 && right->isI == 1) {
+               int addr0 = left->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, multI, addr0, right->value, result->registerNumber);
+            } else {
+               int addr0 = left->registerNumber;
+               int addr1 = right->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, mult, addr0, addr1, result->registerNumber);
+            }
          }
 
          $$ = (struct Variable*)result;
@@ -873,26 +1006,55 @@ Term : Term MULTI Factor
          Variable *result = malloc(sizeof(Variable));
          Variable *left = (Variable *)$1;
          Variable *right = (Variable *)$3;
-         if(left->isI == 1 && right->isI == 1) {
-            int immd = left->value / right->value;
-            result->value = immd;
-            result->isI = 1;
-            $$ = (struct Variable*)result;   
-         }  else if(left->isI == 0 && right->isI == 1) {
-            int addr0 = left->registerNumber;
+         if(right->array != NULL && left->array != NULL) {
+            int leftAddr = NextRegister();
+            Emit(-1, load, left->registerNumber, leftAddr, -1);
+            int rightAddr = NextRegister();
+            Emit(-1, load, right->registerNumber, rightAddr, -1);
             result->registerNumber = NextRegister();
-            Emit(-1, divI, addr0, right->value, result->registerNumber);
-         }  else if(left->isI == 1 && right->isI == 0) {
-            int addr1 = right->registerNumber;
+            Emit(-1, _div, leftAddr, rightAddr, result->registerNumber);
+         } else if(right->array != NULL){
+            int addr = NextRegister();
+            Emit(-1, load, right->registerNumber, addr, -1);
             result->registerNumber = NextRegister();
-            int newRegister = NextRegister();
-            Emit(-1, loadI, left->value, newRegister, -1);
-            Emit(-1, _div, newRegister, addr1, result->registerNumber);
-         }  else {
-            int addr0 = left->registerNumber;
-            int addr1 = right->registerNumber;
+            if(left->isI == 1) {
+               int tempReg = NextRegister();
+               Emit(-1, loadI, left->value, tempReg, -1);
+               Emit(-1, _div, tempReg, addr, result->registerNumber);
+            } else {
+               Emit(-1, _div, left->registerNumber, addr, result->registerNumber);
+            }
+         } else if(left->array != NULL) {
+            int addr = NextRegister();
+            Emit(-1, load, left->registerNumber, addr, -1);
             result->registerNumber = NextRegister();
-            Emit(-1, _div, addr0, addr1, result->registerNumber);
+            if(right->isI == 1) {
+               Emit(-1, divI, addr, right->value, result->registerNumber);
+            } else {
+               Emit(-1, _div, right->registerNumber, addr, result->registerNumber);
+            }
+         } else {
+            if(left->isI == 1 && right->isI == 1) {
+               int immd = left->value / right->value;
+               result->value = immd;
+               result->isI = 1;
+               $$ = (struct Variable*)result;   
+            }  else if(left->isI == 0 && right->isI == 1) {
+               int addr0 = left->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, divI, addr0, right->value, result->registerNumber);
+            }  else if(left->isI == 1 && right->isI == 0) {
+               int addr1 = right->registerNumber;
+               result->registerNumber = NextRegister();
+               int newRegister = NextRegister();
+               Emit(-1, loadI, left->value, newRegister, -1);
+               Emit(-1, _div, newRegister, addr1, result->registerNumber);
+            }  else {
+               int addr0 = left->registerNumber;
+               int addr1 = right->registerNumber;
+               result->registerNumber = NextRegister();
+               Emit(-1, _div, addr0, addr1, result->registerNumber);
+            }
          }
 
          $$ = (struct Variable*)result;
