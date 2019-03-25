@@ -37,7 +37,9 @@ int main( int argc, char *argv[] ) {
   if(argc == 3) {
       if(strcmp(argv[1], "-h") == 0) {
           yyin = fopen(argv[2], "r");
-          oput = fopen("result.i", "w");
+          char *name = argv[2];
+          char *filename = getName(name);
+          oput = fopen(filename , "w");
           printf("read from file\n");
           yyparse();
           fclose(oput);
