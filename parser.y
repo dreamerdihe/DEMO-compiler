@@ -1084,9 +1084,10 @@ Term : Term MULTI Factor
 ;
 
 Factor : LP Expr RP
-       | Reference {
-          {$$ = $1;}
-       }
+       | Reference 
+         {  
+            $$ = $1;
+         }
        | NUMBER 
          {
             Variable *v = malloc(sizeof(Variable));
