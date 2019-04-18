@@ -152,11 +152,14 @@ IfStmt : IF LP Bool RP
 
 ForStmt : FOR NAME ASSIGNOP Expr TO
             Expr BY Expr 
-            {
+            {  
                Variable *vari = lookup($2);
                if(vari == NULL) {
-                  yyerror("need declare firt\n");
+                  yyerror("need declare first\n");
                } 
+               if(vari->array != NULL) {
+                  yyerror("Using an array reference in for loop\n");
+               }
                ForStmt *forstmt = malloc(sizeof(ForStmt));
                forstmt->label = Nextlabel();
                forstmt->exit = Nextlabel();
